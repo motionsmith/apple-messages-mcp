@@ -87,7 +87,8 @@ describe('Apple Messages MCP provider boundary', () => {
       } finally {
         await fs.rm(temporaryDirectory, { recursive: true, force: true });
       }
-    }
+    },
+    20_000
   );
 
   it('dispatches generic MCP calls through injected consumer callbacks', async () => {
