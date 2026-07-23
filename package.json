@@ -1,0 +1,51 @@
+{
+  "name": "@motionsmith/apple-messages-mcp",
+  "version": "0.1.0",
+  "description": "Library-first MCP protocol and local macOS helper toolkit for Apple Messages.",
+  "license": "MIT",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "helper/apple-messages-helper.swift",
+    "scripts/build-apple-messages-helper.sh",
+    "scripts/apple-messages-helper.Info.plist",
+    "README.md",
+    "LICENSE.md",
+    "CHANGELOG.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/motionsmith/apple-messages-mcp.git"
+  },
+  "bugs": {
+    "url": "https://github.com/motionsmith/apple-messages-mcp/issues"
+  },
+  "homepage": "https://github.com/motionsmith/apple-messages-mcp#readme",
+  "scripts": {
+    "build": "tsc -b",
+    "test": "vitest run",
+    "lint": "eslint . --ext .ts",
+    "helper:build": "scripts/build-apple-messages-helper.sh",
+    "pack:check": "pnpm pack --pack-destination /tmp/apple-messages-mcp-pack"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "@types/node": "^22.15.0",
+    "eslint": "^9.39.1",
+    "globals": "^16.5.0",
+    "typescript": "^5.8.3",
+    "typescript-eslint": "^8.59.4",
+    "vitest": "^4.1.6"
+  },
+  "packageManager": "pnpm@11.1.2"
+}

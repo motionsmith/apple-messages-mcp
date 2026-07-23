@@ -1,0 +1,34 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: macos-latest
+    environment: publish
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+          cache: pnpm
+      - run: corepack enable
+      - run: corepack pnpm install --frozen-lockfile
+      - run: corepack pnpm lint
+      - run: corepack pnpm test
+      - run: corepack pnpm build
+      - run: corepack pnpm helper:build
+      - run: corepack pnpm publish --access public --provenance --no-git-checks
+      - uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true

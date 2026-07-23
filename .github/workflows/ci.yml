@@ -1,0 +1,28 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: corepack enable
+      - run: corepack pnpm install --frozen-lockfile
+      - run: corepack pnpm lint
+      - run: corepack pnpm test
+      - run: corepack pnpm build
+      - run: corepack pnpm pack --pack-destination /tmp/apple-messages-mcp-pack
+      - run: tar -tzf /tmp/apple-messages-mcp-pack/*.tgz | grep -E 'package/(dist/index.js|helper/apple-messages-helper.swift|README.md|LICENSE.md)$'
+      - run: corepack pnpm helper:build
+      - run: 'SMOKE_DIR="$(mktemp -d)"; printf "{\"databasePath\":\"$SMOKE_DIR/chat.db\"}" | "bin/Apple Messages MCP Host.app/Contents/MacOS/apple-messages-helper" messages-read | grep -F "apple-messages-helper-read-result"'
