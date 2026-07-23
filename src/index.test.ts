@@ -16,8 +16,7 @@ describe('Apple Messages MCP provider boundary', () => {
   it('keeps the provider independent of consumer config, traces, and command code', async () => {
     const source = await fs.readFile(path.join(__dirname, 'index.ts'), 'utf8');
 
-    expect(source).not.toMatch(/@sugar\/(config|traces)/);
-    expect(source).not.toMatch(/apps\/cli|appleMessagesSetup|sourceObservation|Sugar Mac Host/);
+    expect(source).not.toMatch(/apps\/cli|appleMessagesSetup|sourceObservation/);
   });
 
   it('normalizes fixture rows without leaking raw conversation, sender, or message content', () => {
@@ -61,7 +60,7 @@ describe('Apple Messages MCP provider boundary', () => {
     'reports opaque-ref validation permission failures without calling the conversation missing',
     async () => {
       const temporaryDirectory = await fs.mkdtemp(
-        path.join(os.tmpdir(), 'sugar-messages-helper-permission-')
+        path.join(os.tmpdir(), 'apple-messages-helper-permission-')
       );
       const inputPath = path.join(temporaryDirectory, 'request.json');
       await fs.writeFile(

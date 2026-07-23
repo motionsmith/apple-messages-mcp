@@ -1,12 +1,22 @@
 # Apple Messages MCP
 
-`@motionsmith/apple-messages-mcp` is a library-first MCP protocol and reusable local macOS helper
-toolkit for Apple Messages. It is for any consumer that can host a stdio MCP server and provide its
-own status, watch setup, and optional bounded context callbacks. It is not a configuration store,
-approval system, transcript database, or Sugar integration.
+`@motionsmith/apple-messages-mcp` helps a local app or agent read selected Apple Messages
+conversations through MCP. It provides the MCP tools and a small macOS helper; your application
+decides which conversations to watch, how they are configured, and what to do with the results.
 
 Apple Messages data stays on the local Mac. The helper reads the local `chat.db`; the app that
 compiles and runs it needs macOS Full Disk Access. This package never bypasses macOS privacy.
+
+## Is this for me?
+
+This package is a good fit if you are building a local macOS assistant, automation, or MCP host and
+want bounded, read-only access to chosen Messages conversations. It is especially useful when your
+application already has its own configuration and can provide the callbacks shown below.
+
+It is not a ready-to-use Messages app, a hosted service, or a no-code MCP server. It does not send
+messages, sync conversations to the cloud, maintain a transcript archive, choose conversations for
+the user, or avoid the Full Disk Access requirement. Live message reading works only on the Mac
+where the Messages database exists.
 
 ## Install
 

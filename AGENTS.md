@@ -22,7 +22,7 @@ This repository is the standalone Apple Messages MCP protocol library and local 
 ## Boundary
 
 - Keep the package library-first: the consumer provides status, setup, and optional bounded context callbacks.
-- Do not add Sugar config, traces, Home, Operator Ask, household model, approval, or transcript persistence policy.
+- Do not add consumer-specific config, traces, UI, automation, approval, or transcript persistence policy.
 - Keep fixtures, tests, documentation, and CI free of raw message bodies, contact data, chat GUIDs, attachment contents, and lookup queries.
 - The helper uses the local Mac's `chat.db`; macOS Full Disk Access belongs to the compiled host app identity.
 
