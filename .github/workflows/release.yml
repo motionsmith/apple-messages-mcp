@@ -23,12 +23,13 @@ jobs:
           registry-url: https://registry.npmjs.org
           cache: pnpm
       - run: corepack enable
+      - run: npm install --global npm@11.15.0
       - run: corepack pnpm install --frozen-lockfile
       - run: corepack pnpm lint
       - run: corepack pnpm test
       - run: corepack pnpm build
       - run: corepack pnpm helper:build
-      - run: corepack pnpm publish --access public --provenance --no-git-checks
+      - run: npm publish --access public
       - uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
