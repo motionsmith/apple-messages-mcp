@@ -85,11 +85,76 @@ func contactIdentifiers(_ query: String) -> [String] {
   return Array(identifiers).sorted().prefix(10).map { $0 }
 }
 
+struct PhoneLookup {
+  let digits: String
+  let allowsCountryPrefix: Bool
+}
+
+func phoneLookup(_ value: String) -> PhoneLookup? {
+  let punctuation = CharacterSet(charactersIn: "+()- .")
+  guard value.unicodeScalars.allSatisfy({ CharacterSet.decimalDigits.contains($0) || punctuation.contains($0) }) else { return nil }
+  let digits = value.filter(\.isNumber)
+  guard digits.count >= 10 else { return nil }
+  return PhoneLookup(digits: digits, allowsCountryPrefix: !value.trimmingCharacters(in: .whitespacesAndNewlines).hasPrefix("+"))
+}
+
+func normalizedIdentifierPredicate(_ expression: String, _ identifiers: [String]) -> String {
+  let emails = Set(identifiers.map { $0.lowercased() }.filter { $0.contains("@") }).sorted()
+  var phones: [String: Bool] = [:]
+  identifiers.compactMap(phoneLookup).forEach { phone in
+    phones[phone.digits] = (phones[phone.digits] ?? false) || phone.allowsCountryPrefix
+  }
+  var predicates = emails.map { "lower(\(expression)) = \(sqlQuote($0))" }
+  if !phones.isEmpty {
+    let normalized = "replace(replace(replace(replace(replace(replace(lower(\(expression)), '+', ''), '(', ''), ')', ''), '-', ''), ' ', ''), '.', '')"
+    predicates.append("\(normalized) IN (\(phones.keys.sorted().map(sqlQuote).joined(separator: ", ")))")
+    phones.filter(\.value).keys.sorted().forEach { digits in
+      predicates.append("(length(\(normalized)) > \(digits.count) AND length(\(normalized)) <= \(digits.count + 3) AND substr(\(normalized), -\(digits.count)) = \(sqlQuote(digits)))")
+    }
+  }
+  return predicates.joined(separator: " OR ")
+}
+
+func candidateMatchSelect(from: String, chatId: String, exact: String, contact: String, query: String) -> String {
+  let conditions = [exact, contact, query].filter { !$0.isEmpty }
+  var rank = "CASE WHEN (\(exact)) THEN 1"
+  if !contact.isEmpty { rank += " WHEN (\(contact)) THEN 2" }
+  rank += " ELSE 3 END"
+  return "SELECT \(chatId) AS chatId, \(rank) AS matchRank FROM \(from) WHERE \(conditions.map { "(\($0))" }.joined(separator: " OR "))"
+}
+
 func candidatesSql(_ query: String, identifiers: [String], limit: Int) -> String {
-  let value = sqlQuote(query); let contact = identifiers.map { "c.chat_identifier = \(sqlQuote($0))" }.joined(separator: " OR ")
-  let contactCase = contact.isEmpty ? "" : " WHEN \(contact) THEN 'contact_match'"
-  let contactWhere = contact.isEmpty ? "" : " OR \(contact)"
-  return "SELECT DISTINCT c.guid AS chatGuid, CASE WHEN c.display_name = \(value) OR c.chat_identifier = \(value) THEN 'exact_label'\(contactCase) ELSE 'query_match' END AS matchKind FROM chat c WHERE instr(c.display_name, \(value)) > 0 OR instr(c.chat_identifier, \(value)) > 0\(contactWhere) ORDER BY c.ROWID DESC LIMIT \(min(max(limit, 1), 5));"
+  let value = sqlQuote(query)
+  let lookupIdentifiers = [query] + identifiers
+  let chatQuery = ["instr(lower(COALESCE(c.display_name, '')), lower(\(value))) > 0", "instr(lower(COALESCE(c.chat_identifier, '')), lower(\(value))) > 0", normalizedIdentifierPredicate("c.chat_identifier", lookupIdentifiers)].filter { !$0.isEmpty }.joined(separator: " OR ")
+  let participantQuery = ["instr(lower(h.id), lower(\(value))) > 0", normalizedIdentifierPredicate("h.id", lookupIdentifiers)].filter { !$0.isEmpty }.joined(separator: " OR ")
+  let messageQuery = ["instr(lower(mh.id), lower(\(value))) > 0", normalizedIdentifierPredicate("mh.id", lookupIdentifiers)].filter { !$0.isEmpty }.joined(separator: " OR ")
+  let chatSelect = candidateMatchSelect(
+    from: "chat c",
+    chatId: "c.ROWID",
+    exact: "lower(c.display_name) = lower(\(value)) OR lower(c.chat_identifier) = lower(\(value))",
+    contact: normalizedIdentifierPredicate("c.chat_identifier", identifiers),
+    query: chatQuery
+  )
+  let participantSelect = candidateMatchSelect(
+    from: "chat_handle_join chj JOIN handle h ON h.ROWID = chj.handle_id",
+    chatId: "chj.chat_id",
+    exact: "lower(h.id) = lower(\(value))",
+    contact: normalizedIdentifierPredicate("h.id", identifiers),
+    query: participantQuery
+  )
+  let messageSelect = candidateMatchSelect(
+    from: "message m JOIN handle mh ON mh.ROWID = m.handle_id JOIN chat_message_join cmj ON cmj.message_id = m.ROWID",
+    chatId: "cmj.chat_id",
+    exact: "lower(mh.id) = lower(\(value))",
+    contact: normalizedIdentifierPredicate("mh.id", identifiers),
+    query: messageQuery
+  )
+  return "WITH matches AS (\(chatSelect) UNION ALL \(participantSelect) UNION ALL \(messageSelect)), ranked AS (SELECT chatId, MIN(matchRank) AS matchRank FROM matches GROUP BY chatId) SELECT c.guid AS chatGuid, CASE ranked.matchRank WHEN 1 THEN 'exact_label' WHEN 2 THEN 'contact_match' ELSE 'query_match' END AS matchKind FROM ranked JOIN chat c ON c.ROWID = ranked.chatId ORDER BY COALESCE((SELECT MAX(m.date) FROM chat_message_join cmj JOIN message m ON m.ROWID = cmj.message_id WHERE cmj.chat_id = c.ROWID), 0) DESC, c.ROWID DESC LIMIT \(min(max(limit, 1), 5));"
+}
+
+func shouldResolveContacts(_ query: String) -> Bool {
+  return !query.contains("@") && query.contains(where: \.isLetter)
 }
 
 func readSql(_ conversation: String, _ maxMessages: Int) -> String {
@@ -107,7 +172,8 @@ do {
   if command == "messages-candidates" {
     let query = ((request["query"] as? String) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
     guard query.count >= 2 else { result(candidateKind, status: "failed", findings: ["Apple Messages candidate lookup requires a query of at least two characters."]); exit(64) }
-    let response = try sqlite(path, candidatesSql(query, identifiers: contactIdentifiers(query), limit: (request["limit"] as? Int) ?? 5))
+    let identifiers = shouldResolveContacts(query) ? contactIdentifiers(query) : []
+    let response = try sqlite(path, candidatesSql(query, identifiers: identifiers, limit: (request["limit"] as? Int) ?? 5))
     guard response.status == 0 else { let status = failureStatus(response.stderr); result(candidateKind, status: status, findings: [failureFinding(status)]); exit(status == "missing_permission" ? 3 : 2) }
     let rows = ((try? JSONSerialization.jsonObject(with: Data(response.stdout.utf8))) as? [[String: Any]]) ?? []
     let candidates = rows.enumerated().compactMap { index, row -> [String: Any]? in guard let guid = row["chatGuid"] as? String, let kind = row["matchKind"] as? String else { return nil }; return ["candidateRef": opaqueConversationRef(guid), "label": "Conversation \(index + 1)", "matchKind": kind == "exact_label" ? "exact_label" : kind == "contact_match" ? "contact_match" : "query_match"] }

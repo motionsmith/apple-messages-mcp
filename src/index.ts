@@ -5,7 +5,7 @@ import path from 'path';
 import { createInterface } from 'readline';
 import { stdin as defaultStdin, stdout as defaultStdout } from 'process';
 
-export const APPLE_MESSAGES_PROVIDER_VERSION = '0.1.0';
+export const APPLE_MESSAGES_PROVIDER_VERSION = '0.1.1';
 export const MAX_APPLE_MESSAGES_CANDIDATES = 5;
 
 export type AppleMessagesReadStatus =

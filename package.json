@@ -1,6 +1,6 @@
 {
   "name": "@motionsmith/apple-messages-mcp",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Library-first MCP protocol and local macOS helper toolkit for Apple Messages.",
   "license": "MIT",
   "main": "dist/index.js",

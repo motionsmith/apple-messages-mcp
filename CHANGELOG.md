@@ -2,6 +2,11 @@
 
 All notable changes to this package are documented here.
 
+## 0.1.1 — 2026-07-23
+
+- Normalize formatted phone numbers when resolving Apple Messages conversations through Contacts.
+- Match both chat identifiers and participant handles, then rank matching chats by recent activity.
+
 ## 0.1.0 — 2026-07-23
 
 - First public release of the Apple Messages MCP protocol library and reusable local macOS helper source.

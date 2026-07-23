@@ -21,7 +21,7 @@ where the Messages database exists.
 ## Install
 
 ```sh
-corepack pnpm add @motionsmith/apple-messages-mcp@0.1.0
+corepack pnpm add @motionsmith/apple-messages-mcp@0.1.1
 ```
 
 The package supports Node 20 or newer and is useful for live helper work only on macOS. The
